@@ -62,23 +62,23 @@ api = twitter.Api(
 # Now we'll set up a function to accept a search term and then fetch the tweets for that term 
 
 
-def createTestData(search_string):
-    try:
-        tweets_fetched=api.GetSearch(search_string, count=100)
-        # This will return a list with twitter.Status objects. These have attributes for 
-        # text, hashtags etc of the tweet that you are fetching. 
-        # The full documentation again, you can see by typing pydoc twitter.Status at the 
-        # command prompt of your terminal 
-        #print "Great! We fetched "+str(len(tweets_fetched))+" tweets with the term "+search_string+"!!"
-        # We will fetch only the text for each of the tweets, and since these don't have labels yet, 
-        # we will keep the label empty 
-        return [{"text":status.text,"label":None} for status in tweets_fetched]
-    except:
-        #print "Sorry there was an error!"
-        return None
-    
-#search_string=input("Hi there! What are we searching for today?")
-testData=createTestData("Apple")
+# def createTestData(search_string):
+#     try:
+#         tweets_fetched=api.GetSearch(search_string, count=100)
+#         # This will return a list with twitter.Status objects. These have attributes for
+#         # text, hashtags etc of the tweet that you are fetching.
+#         # The full documentation again, you can see by typing pydoc twitter.Status at the
+#         # command prompt of your terminal
+#         #print "Great! We fetched "+str(len(tweets_fetched))+" tweets with the term "+search_string+"!!"
+#         # We will fetch only the text for each of the tweets, and since these don't have labels yet,
+#         # we will keep the label empty
+#         return [{"text":status.text,"label":None} for status in tweets_fetched]
+#     except:
+#         #print "Sorry there was an error!"
+#         return None
+#
+# #search_string=input("Hi there! What are we searching for today?")
+# testData=createTestData("Apple")
 
 # Let's try that out
     
