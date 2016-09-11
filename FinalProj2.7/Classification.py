@@ -1,21 +1,13 @@
 import csv
-import twitter
 import os, time
 import sys, traceback
-import re
 import nltk
+import CredentialsInfo
 from string import punctuation
 from nltk.corpus import sentiwordnet as swn
 from textblob import TextBlob
 from nltk.tokenize import TweetTokenizer
-
-# credentials for connecting to twitter API.
-api = twitter.Api(
-    consumer_key='YnH8HtrVYhxmNSr4lLLpuI5MG',
-    consumer_secret='gk5Je6TJT9Bt2M7lrxask8LYFv0s4l7U2mKEeVUg6I7tvgAFW5',
-    access_token_key='1571106582-jSTOVFhv7o8AxXiceEv6Sx60njiuUPH0lr77oI8',
-    access_token_secret='tE5wzDkRAijVNL5O6vfDQzHzyBWTGlEpvVN9Y6nhGACBz'
-)
+from nltk.stem.porter import *
 
 _stopwords = []
 
@@ -82,13 +74,13 @@ def customReplaceFunc(tweet):
         "'re": 'are',
         "ya": '',
         "u": 'you',
-        "'m":'am',
         "'re":'are',
         "'d": 'would',
         "'s": 'is',
         "'m": 'am',
         "'t":'not',
         "n't":'not',
+        "ur":'you are',
 
         #unncessary
         "amp":'',
@@ -124,11 +116,13 @@ def _processTweet(tweet):
     tweet = re.sub('@[^\s]+', 'AT_USER', tweet)
     # 4. Replace #word with word
     tweet = re.sub(r'#([^\s]+)', r'\1', tweet)
-
+    # 5. Replace any numeric number
+    tweet = re.sub('\d', '', tweet)
+    #6. Replace special characters
+    tweet = re.sub(r'[,!.;?]', '', tweet)
+    # 6. Tokenize word using nltk
     tweet = nltk.word_tokenize(tweet)
-    # This tokenizes the tweet into a list of words # Let's now return this list minus any stopwords
-    # return [word.replace("'","") for word in tweet if (word not in _stopwords and len(word)>= 3)]
-
+    # 7. Let's now return this list minus any stopwords
     tweet = [word for word in tweet if (word not in _stopwords)]
 
     # tweet=tagger.tag(tweet)
@@ -184,17 +178,15 @@ for index in range(0, 100):
     for eachgram in ngrams:
         _eachgramAsSentence = ' '.join(list(eachgram))
 
-        if TextBlob(_eachgramAsSentence).sentiment.polarity > 0:
-            polarity = 'pos = ' + str(TextBlob(_eachgramAsSentence).sentiment.polarity)
-        elif TextBlob(_eachgramAsSentence).sentiment.polarity > 0:
-            polarity = 'neg = ' + str(TextBlob(_eachgramAsSentence).sentiment.polarity)
-        else:
-            polarity = 'Subj = ' + str(TextBlob(_eachgramAsSentence).sentiment)
+        if (TextBlob(_eachgramAsSentence).sentiment.polarity + TextBlob(_eachgramAsSentence).sentiment.subjectivity)>0:
+            if TextBlob(_eachgramAsSentence).sentiment.polarity > 0:
+                polarity = 'pos = ' + str(TextBlob(_eachgramAsSentence).sentiment.polarity) + (' subj ' + str(TextBlob(_eachgramAsSentence).sentiment.subjectivity) if TextBlob(_eachgramAsSentence).sentiment.subjectivity > 0 else '')
+            elif TextBlob(_eachgramAsSentence).sentiment.polarity > 0:
+                polarity = 'neg = ' + str(TextBlob(_eachgramAsSentence).sentiment.polarity) + (' subj ' + str(TextBlob(_eachgramAsSentence).sentiment.subjectivity) if TextBlob(_eachgramAsSentence).sentiment.subjectivity > 0 else '')
+            else:
+                polarity = 'Subj = ' + str(TextBlob(_eachgramAsSentence).sentiment)
 
-        print(_eachgramAsSentence,
-                polarity
-              )
-    # print TextBlob(sentence).sentiment
+            print(_eachgramAsSentence, polarity)
 
     print '-' * 50 + ' SentiwordNet ' + '-' * 50
     for eachword in devData[index][0]:
