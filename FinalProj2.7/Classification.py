@@ -62,8 +62,8 @@ def saveAfterDownload(trainingData, tweetDataFile):
 
 # Read and Write used to fetch the corpus file and extract only emotion and text in new file.
 def readAndWriteCorpus(corpusFile, destFile):
-    print(corpusFile)
-    print(destFile)
+    #print(corpusFile)
+    #print(destFile)
     try:
         corpus = []
         with open(corpusFile, 'rU') as csvfile:
@@ -168,7 +168,7 @@ def processingDataForSelfUnderStanding(dataSet):
         print symbol * 50 + ' Sentence ' + symbol * 50
 
         # Printing Original Sentence
-        print str(index + 1) + ')', str(dataSet[index][0])
+        #print str(index + 1) + ')', str(dataSet[index][0])
 
         # Tokenizing the sentence
         tokens = tknzr.tokenize(dataSet[index][0])
@@ -222,7 +222,7 @@ def processingDataForSelfUnderStanding(dataSet):
                 # else:
                 #     polarity = 'Subj = ' + str(TextBlob(_eachgramAsSentence).sentiment)
 
-                print(_eachgramAsSentence, polarity)
+                #print(_eachgramAsSentence, polarity)
 
         # endregion
 
@@ -271,13 +271,13 @@ def preProcessTweets(dataSet):
     for index in range(0, len(dataSet)):
         try:
             # Encoding in utf-8 format
-            tweetText = unicode(dataSet[index][1], 'utf-8')
+            text = unicode(dataSet[index][0], 'utf-8')
+            label = unicode(dataSet[index][1], 'utf-8')
         except:
-            print(dataSet[index][1])
-            print(index)
+            print(dataSet[index][0])
 
         # Tokenizing the sentence
-        tokens = tknzr.tokenize(tweetText)
+        tokens = tknzr.tokenize(text)
 
         # Doing custom Filtering on certain Slangs and words
         customFilteredTokens = customReplaceFunc(tokens)
@@ -299,7 +299,7 @@ def preProcessTweets(dataSet):
                     SubjectiveWordsList.append(_stemmedWord)
         #topic if required in dataset[index][1]
         if SubjectiveWordsList != []:
-            pptrainingData.append(((SubjectiveWordsList,'sarcastic')))
+            pptrainingData.append(((SubjectiveWordsList,label)))
     return pptrainingData
 
 def buildingDict(ppTrainingData):
@@ -364,7 +364,7 @@ folderPath = os.path.join(os.getcwd(), 'Data', 'FetchedData', 'FinalData')
 fileNames=['tweet.SARCASM.all.id.TEST.csv','tweet.SARCASM.all.id.TRAIN.csv']
 
 Start = time.time()
-print("Started reading at ", Start)
+print("Started reading...")
 
 readFilesFromDirectory(folderPath, fileNames)
 
@@ -379,7 +379,33 @@ testData = processTweets(allFileAsList[0])
 trainData = processTweets(allFileAsList[1])
 
 #processingDataForSelfUnderStanding(trainingData);
+
+TotalTestDataRec  = len(testData)
+TotalTrainDataRec = len(trainData)
+
+print("Records in test Data : " + str(TotalTestDataRec))
+print("Records in training Data : " + str(TotalTrainDataRec))
+
+CopyStart = time.time()
+
+print("Started copying to another dataset for backup..")
+OriginaltrainDataSet = trainData
+
+print("Took " + str(time.time() - CopyStart) + " to copy")
+
+print("Slicing training data to reduce over-load")
+trainData = OriginaltrainDataSet[0:500]
+
+
+print("Records in training Data now: " + str(len(trainData)))
+
+Start = time.time()
+print("Started processing...")
+
 tweetProcessor = preProcessTweets(trainData)
+
+print(str(len(trainData)) + " records took :" + str(time.time() - Start))
+
 word_features = buildingDict(tweetProcessor)
 trainingFeatures=nltk.classify.apply_features(extract_features,trainData)
 
