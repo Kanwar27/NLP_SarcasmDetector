@@ -1,16 +1,41 @@
+# region Import Statements
+
 import csv
 import os, time
+from collections import defaultdict
 import sys, traceback
 import nltk
-import CredentialsInfo
+from nltk.tag.perceptron import PerceptronTagger
 from string import punctuation
 from nltk.corpus import sentiwordnet as swn
 from textblob import TextBlob
 from nltk.tokenize import TweetTokenizer
 from nltk.stem.porter import *
+import enchant
+
+# from autocorrect import spell
+# import itertools
+
+# endregion
+
 
 _stopwords = []
+stemmer = PorterStemmer()
+en_US_dict = enchant.Dict("en_US")
+symbol = '='
+tagger = PerceptronTagger()
+tknzr = TweetTokenizer()
 
+# Getting a list for making stop words list.
+_stopwords = set(
+                    nltk.corpus.stopwords.words('english') + list(punctuation) +
+                    ['AT_USER', 'URL', 'sarcasm', 'rt', 'since', 'anyways']
+                )
+
+# region Functions Inside
+# Convert timedelta into hour:min:sec format
+def days_hours_minutes(td):
+    return td.days, td.seconds//3600, (td.seconds//60)%60
 
 # Append the current directory path to the file required.
 def getFullPath(fileName, isOutput=False):
@@ -52,9 +77,9 @@ def readAndWriteCorpus(corpusFile, destFile):
         saveAfterDownload(corpus, destFile)
         print('Successfully written file ' + getFullPath(destFile))
     except:
-        print '-' * 60
+        print symbol * 60
         traceback.print_exc(file=sys.stdout)
-        print '-' * 60
+        print symbol * 60
 
 
 # First processing of Tweets but the data needs to be sent as list parameter.
@@ -67,134 +92,307 @@ def processTweets(list_of_tweets):
     return processedTweets
 
 
-def customReplaceFunc(tweet):
+# Trying to replace some common Slangs :
+# Could have used a Slang dictionary from internet and replaced each word with correct spelling.
+# Too much overhead so avoiding , replaced some words and for rest checked spellings and omitted the word if
+# spellings are not correct. Used "pyenchant" for that.
+
+def customReplaceFunc(list_word):
     dicToReplace = {
         "it's": 'it is',
         "'ve": 'have',
         "'re": 'are',
         "ya": '',
         "u": 'you',
-        "'re":'are',
+        "'re": 'are',
         "'d": 'would',
         "'s": 'is',
         "'m": 'am',
-        "'t":'not',
-        "n't":'not',
-        "ur":'you are',
+        "'t": 'not',
+        "n't": 'not',
+        "ur": 'you are',
 
-        #unncessary
-        "amp":'',
-        "yay":'',
-        "ya":''
+        # unncessary
+        "amp": '',
+        "yay": '',
+        "ya": ''
     }
 
-    tknzr = TweetTokenizer()
-    list_word = tknzr.tokenize(tweet)
     # print ['Original'] + list_word
-    for index in range(0,len(list_word)):
+    for index in range(0, len(list_word)):
         if (dicToReplace.has_key(list_word[index])):
             list_word[index] = dicToReplace.get(str(list_word[index]))
         elif "'" in list_word[index]:
             if (dicToReplace.has_key("'" + list_word[index].split("'")[1])):
-                list_word[index] = list_word[index].split("'")[0] + ' ' + dicToReplace.get("'" + list_word[index].split("'")[1])
-    tweet = ' '.join(list_word)
-    # print(tweet)
-    # time.sleep(5)
-    return tweet
+                list_word[index] = list_word[index].split("'")[0] + ' ' + dicToReplace.get(
+                    "'" + list_word[index].split("'")[1])
+    return list_word
 
 
 # Second processing of Tweets
+# Main processing of Tweets....
 def _processTweet(tweet):
     # 1. Convert to lower case
     tweet = tweet.lower()
-
-    tweet = customReplaceFunc(tweet)
 
     # 2. Replace links with the word URL
     tweet = re.sub('((www\.[^\s]+)|(https?://[^\s]+))', 'URL', tweet)
     # 3. Replace @username with "AT_USER"
     tweet = re.sub('@[^\s]+', 'AT_USER', tweet)
     # 4. Replace #word with word
-    tweet = re.sub(r'#([^\s]+)', r'\1', tweet)
+    # tweet = re.sub(r'#([^\s]+)', r'\2', tweet)
+
+    tweet = re.sub(r'#([^\s]+)', '',
+                   tweet)  # used this instead and completely omitted hashtags, most of the times teh hashtags
+    # were sarcasm or words like that so no need to include such words
+
     # 5. Replace any numeric number
     tweet = re.sub('\d', '', tweet)
-    #6. Replace special characters
+    # 6. Replace special characters
     tweet = re.sub(r'[,!.;?]', '', tweet)
-    # 6. Tokenize word using nltk
-    tweet = nltk.word_tokenize(tweet)
-    # 7. Let's now return this list minus any stopwords
-    tweet = [word for word in tweet if (word not in _stopwords)]
+    #  7. Tokenize word using nltk
+    # tweet = nltk.word_tokenize(tweet)
+    #  8. Let's now return this list minus any stopwords
+    # tweet = [word for word in tweet if (word not in _stopwords)]
 
+    # Did the tagging later inside SentiwordNet when we will have separate words.
     # tweet=tagger.tag(tweet)
 
     return tweet
 
 
-# Start Program Section :
-#
-# readAndWriteCorpus(getFullPath('tweetDataFile1.csv'), getFullPath('NON_SARCASM_DEV.txt',True))
-# for _fileName in os.listdir(os.path.join(os.getcwd() ,'Data','FetchedData')):
-#     print(readAndWriteCorpus(getFullPath(_fileName), getFullPath(_fileName,True)))
+# Processing the Training Data using TextBlob, SentiwordNet
+def processingDataForSelfUnderStanding(dataSet):
+    for index in range(0, dataSet.__len__()):
 
-from nltk.tag.perceptron import PerceptronTagger
+        print symbol * 50 + ' Sentence ' + symbol * 50
 
-tagger = PerceptronTagger()
+        # Printing Original Sentence
+        print str(index + 1) + ')', str(dataSet[index][0])
 
-# Getting a list for making stop words list.
-_stopwords = set(nltk.corpus.stopwords.words('english') + list(punctuation) + ['AT_USER', 'URL', 'sarcasm', 'rt'])
+        # Tokenizing the sentence
+        tokens = tknzr.tokenize(dataSet[index][0])
+
+        # print('tokens : ', tokens)
+
+        # Doing custom Filtering on certain Slangs and words
+        customFilteredTokens = customReplaceFunc(tokens)
+
+        # print('customFilteredTokens : ', customFilteredTokens)
+
+        #customFilteredTokens = tknzr.tokenize(' '.join(customFilteredTokens))
+
+        # Removing Stop Words
+        afterRemovingStopWords = [word for word in customFilteredTokens if (word not in _stopwords)]
+
+        # print(' afterRemovingStopWords : ', afterRemovingStopWords)
+
+        # time.sleep(40)
+
+        # region Spell - Check of Tokens and Return a sentence
+        sentence = ''  # capture the new sentence after spelling check is done on each word
+        omitted = ''  # capture the omitted words from each sentence
+
+        for wrd in afterRemovingStopWords:
+            if wrd != '':
+                _isCorrect = en_US_dict.check(wrd)
+                if _isCorrect:
+                    sentence += wrd + ' '
+                # Just to see what has been ommitted uncomment the following lines.
+                else:
+                    omitted += wrd + ' , '
+                    # print('omitted : ' + omitted) if omitted != "" else ''
+        sentence = str(sentence)
+
+        # print('sentence : ', str(sentence))
+        # endregion
+
+        # region TextBlob
+        print symbol * 50 + ' TextBlob ' + symbol * 50
+
+        ngrams = (TextBlob(sentence).ngrams(n=3))
+        for eachgram in ngrams:
+            _eachgramAsSentence = ' '.join(list(eachgram))
+
+            if (TextBlob(_eachgramAsSentence).sentiment.polarity + TextBlob(_eachgramAsSentence).sentiment.subjectivity) > 0:
+                if TextBlob(_eachgramAsSentence).sentiment.polarity > 0:
+                    polarity = (TextBlob(_eachgramAsSentence).sentiment.polarity)  # + (' Subj=' + str(TextBlob(_eachgramAsSentence).sentiment.subjectivity) if TextBlob(_eachgramAsSentence).sentiment.subjectivity > 0 else '')
+                elif TextBlob(_eachgramAsSentence).sentiment.polarity < 0:
+                    polarity = -(TextBlob(_eachgramAsSentence).sentiment.polarity)  # + (' Subj=' + str(TextBlob(_eachgramAsSentence).sentiment.subjectivity) if TextBlob(_eachgramAsSentence).sentiment.subjectivity > 0 else '')
+                # else:
+                #     polarity = 'Subj = ' + str(TextBlob(_eachgramAsSentence).sentiment)
+
+                print(_eachgramAsSentence, polarity)
+
+        # endregion
+
+        # region SentiwordNet
+        print symbol * 50 + ' SentiwordNet ' + symbol * 50
+
+        for eachword in dataSet[index][0].split(' '):
+            _stemmedWord = stemmer.stem(eachword)
+
+            # region Tried Spelling Correction
+            '''
+
+            # Trying to correct spellings but operations are too costly and mostly the words are
+            # subjective so no point henceforth omitting words that are not spelled correctly
+
+            # Replace same characters in a string
+
+            _ReplacedRepitition = ''.join(c for c, _ in itertools.groupby(eachword))
+
+
+
+            print('Original : {4} | {0} as {1} / {2} Correct : {3}'.format(_ReplacedRepitition,_correctlySpelledTB, _correctlySpelledAC, _isCorrect, eachword))
+
+            print(_ReplacedRepitition)
+            '''
+            # endregion
+
+            if len(swn.senti_synsets(_stemmedWord)) > 0:
+                subjectivity = swn.senti_synsets(_stemmedWord)[0].pos_score() if swn.senti_synsets(_stemmedWord)[0].pos_score() > swn.senti_synsets(_stemmedWord)[0].neg_score() else -(swn.senti_synsets(_stemmedWord)[0].neg_score())
+                if swn.senti_synsets(_stemmedWord)[0].obj_score() != 1:
+                    print(tagger.tag([_stemmedWord]) , subjectivity)
+                        #     # , ' pos=' + str(swn.senti_synsets(_stemmedWord)[0].pos_score())
+                        #     # , ' neg=' + str(swn.senti_synsets(_stemmedWord)[0].neg_score())
+                        #     # , ' obj=' + str(swn.senti_synsets(_stemmedWord)[0].obj_score())
+
+
+        # endregion
+
+        # region
+        print('')
+        # endregion
+
+
+def preProcessTweets(dataSet):
+    pptrainingData=[]
+    for index in range(0, len(dataSet)):
+        try:
+            # Encoding in utf-8 format
+            tweetText = unicode(dataSet[index][1], 'utf-8')
+        except:
+            print(dataSet[index][1])
+            print(index)
+
+        # Tokenizing the sentence
+        tokens = tknzr.tokenize(tweetText)
+
+        # Doing custom Filtering on certain Slangs and words
+        customFilteredTokens = customReplaceFunc(tokens)
+
+        #After replacing I have in one words two words ex. It's has become It is. Two words in one so tokenizing again.
+        customFilteredTokens = tknzr.tokenize(' '.join(customFilteredTokens))
+
+        # Removing Stop Words
+        afterRemovingStopWords = [word for word in customFilteredTokens if (word not in _stopwords)]
+
+        SubjectiveWordsList=[]
+        for eachword in afterRemovingStopWords:
+            _stemmedWord = stemmer.stem(eachword)
+
+            if len(swn.senti_synsets(_stemmedWord)) > 0:
+                subjectivity = swn.senti_synsets(_stemmedWord)[0].pos_score() if swn.senti_synsets(_stemmedWord)[0].pos_score() > swn.senti_synsets(_stemmedWord)[0].neg_score() else -(swn.senti_synsets(_stemmedWord)[0].neg_score())
+                if swn.senti_synsets(_stemmedWord)[0].obj_score() != 1:
+                    #print(tagger.tag([_stemmedWord]) , subjectivity)
+                    SubjectiveWordsList.append(_stemmedWord)
+        #topic if required in dataset[index][1]
+        if SubjectiveWordsList != []:
+            pptrainingData.append(((SubjectiveWordsList,'sarcastic')))
+    return pptrainingData
+
+def buildingDict(ppTrainingData):
+    all_words=[]
+    for (words,sentiment) in ppTrainingData:
+        all_words.extend(words)
+    # This will give us a list in which all the words in all the tweets are present
+    # These have to be de-duped. Each word occurs in this list as many times as it
+    # appears in the corpus
+    wordlist=nltk.FreqDist(all_words)
+    # This will create a dictionary with each word and its frequency
+    word_features=wordlist.keys()
+    # This will return the unique list of words in the corpus
+    return word_features
+
+def extract_features(tweet):
+    tweet_words=set(tweet)
+    features={}
+    for word in word_features:
+        features['contains(%s)' % word]=(word in tweet_words)
+        # This will give us a dictionary , with keys like 'contains word1' and 'contains word2'
+        # and values as True or False
+    return features
+
+# region Reading each file from required Folder path ./Data/FetchedData/FinalData
 allFileAsList = []
-folderName = os.path.join(os.getcwd(), 'Data', 'FetchedData', 'FinalData')
-for _file in os.listdir(folderName):
-    # Printing fileName being scanned
-    # print '-'*100
-    # print(_file)
-    # print '-'*100
+def readFilesFromDirectory(folderPath, fileNames=[]):
 
-    allFileAsList.append([])
+    for _file in os.listdir(folderPath):
+        # Printing fileName being scanned
+        # print symbol*100
+        # print(_file)
+        # print symbol*100
 
-    # Opening file line by line and appending to list.
-    with open(getFullPath(_file, True), 'rb') as csvfile:
-        lineReader = csv.reader(csvfile, delimiter=',')
-        for row in lineReader:
-            # allFileAsList[len(allFileAsList)-1].append('fileName : ' + ',' + _file)
-            allFileAsList[len(allFileAsList) - 1].append(row[0] + ',' + row[1])
+        if fileNames.__contains__(_file):
+            allFileAsList.append([])
 
-# pro=[]
-# for eachList in allFileAsList:
-#     #print(eachList[0])   #format:always ,  Reading #zizek before bed is always a recipe for a nice
-#     pro=processTweets(_stopwords,eachList)
+            # f = open(getFullPath(_file, True), 'rb')
+            # data = f.read()
+            # first_line = data.split('\n', 1)[0]
+            #
+            # separator = ''
+            # if ',' in first_line:
+            #     separator=','
+            # else:
+            #     separator=':'
 
-devData = processTweets(allFileAsList[2])
-# testData=processTweets(allFileAsList[3])
+            # Opening file line by line and appending to list.
+            with open(getFullPath(_file, True), 'rb') as csvfile:
+                lineReader = csv.reader(csvfile, delimiter=',')
+                for row in lineReader:
+                    # allFileAsList[len(allFileAsList)-1].append('fileName : ' + ',' + _file)
+                    allFileAsList[len(allFileAsList) - 1].append(row[0] + ',' + row[1])
 
+    # endregion
+# endregion
+# endregion
 
-for index in range(0, 100):
-    print '-' * 50 + ' Sentence ' + '-' * 50
-    print str(index+1) + ')' , devData[index]
+### Main
 
-    print '-' * 50 + ' TextBlob ' + '-' * 50
-    sentence = ' '.join(list(devData[index][0]))
-    ngrams = (TextBlob(sentence).ngrams(n=3))
-    for eachgram in ngrams:
-        _eachgramAsSentence = ' '.join(list(eachgram))
+folderPath = os.path.join(os.getcwd(), 'Data', 'FetchedData', 'FinalData')
+fileNames=['tweet.SARCASM.all.id.TEST.csv','tweet.SARCASM.all.id.TRAIN.csv']
 
-        if (TextBlob(_eachgramAsSentence).sentiment.polarity + TextBlob(_eachgramAsSentence).sentiment.subjectivity)>0:
-            if TextBlob(_eachgramAsSentence).sentiment.polarity > 0:
-                polarity = 'pos = ' + str(TextBlob(_eachgramAsSentence).sentiment.polarity) + (' subj ' + str(TextBlob(_eachgramAsSentence).sentiment.subjectivity) if TextBlob(_eachgramAsSentence).sentiment.subjectivity > 0 else '')
-            elif TextBlob(_eachgramAsSentence).sentiment.polarity > 0:
-                polarity = 'neg = ' + str(TextBlob(_eachgramAsSentence).sentiment.polarity) + (' subj ' + str(TextBlob(_eachgramAsSentence).sentiment.subjectivity) if TextBlob(_eachgramAsSentence).sentiment.subjectivity > 0 else '')
-            else:
-                polarity = 'Subj = ' + str(TextBlob(_eachgramAsSentence).sentiment)
+Start = time.time()
+print("Started reading at ", Start)
 
-            print(_eachgramAsSentence, polarity)
+readFilesFromDirectory(folderPath, fileNames)
 
-    print '-' * 50 + ' SentiwordNet ' + '-' * 50
-    for eachword in devData[index][0]:
-        if len(swn.senti_synsets(eachword)) > 0:
-            #if swn.senti_synsets(eachword)[0].obj_score() != 1.0:
-            print (
-                tagger.tag([eachword]),
-                ' pos=' + str(swn.senti_synsets(eachword)[0].pos_score()),
-                ' neg=' + str(swn.senti_synsets(eachword)[0].neg_score()),
-                ' obj=' + str(swn.senti_synsets(eachword)[0].obj_score())
-            )
+Took = time.time() - Start
+print ("Took ", round(Took,2))
+
+# Dividing data in trainingData and testData according to respective files
+# tweet.SARCASM.all.id.TEST.csv
+testData = processTweets(allFileAsList[0])
+
+# tweet.SARCASM.all.id.TRAIN.csv
+trainData = processTweets(allFileAsList[1])
+
+#processingDataForSelfUnderStanding(trainingData);
+tweetProcessor = preProcessTweets(trainData)
+word_features = buildingDict(tweetProcessor)
+trainingFeatures=nltk.classify.apply_features(extract_features,trainData)
+
+#print(trainingFeatures)
+
+NBayesClassifier=nltk.NaiveBayesClassifier.train(trainingFeatures)
+
+NBResultLabels=[NBayesClassifier.classify(extract_features(tweet[0])) for tweet in testData]
+
+print(NBResultLabels)
+
+# if NBResultLabels.count('positive')>NBResultLabels.count('negative'):
+#     print "NB Result Positive Sentiment" + str(100*NBResultLabels.count('positive')/len(NBResultLabels))+"%"
+# else:
+#     print "NB Result Negative Sentiment" + str(100*NBResultLabels.count('negative')/len(NBResultLabels))+"%"
+
