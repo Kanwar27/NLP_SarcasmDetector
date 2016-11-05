@@ -1,17 +1,18 @@
 # region Import Statements
-
+import collections
+import re
 import csv
 import os, time
-from collections import defaultdict
 import sys, traceback
 import nltk
-from nltk.tag.perceptron import PerceptronTagger
+from nltk import precision, recall, f_measure
+# from nltk.tag.perceptron import PerceptronTagger
 from string import punctuation
 from nltk.corpus import sentiwordnet as swn
 from textblob import TextBlob
 from nltk.tokenize import TweetTokenizer
-from nltk.stem.porter import *
-import enchant
+# from nltk.stem.porter import *
+# import enchant
 
 # from autocorrect import spell
 # import itertools
@@ -20,10 +21,10 @@ import enchant
 
 
 _stopwords = []
-stemmer = PorterStemmer()
-en_US_dict = enchant.Dict("en_US")
+# stemmer = PorterStemmer()
+# en_US_dict = enchant.Dict("en_US")
 symbol = '='
-tagger = PerceptronTagger()
+# tagger = PerceptronTagger()
 tknzr = TweetTokenizer()
 
 # Getting a list for making stop words list.
@@ -193,16 +194,16 @@ def processingDataForSelfUnderStanding(dataSet):
         sentence = ''  # capture the new sentence after spelling check is done on each word
         omitted = ''  # capture the omitted words from each sentence
 
-        for wrd in afterRemovingStopWords:
-            if wrd != '':
-                _isCorrect = en_US_dict.check(wrd)
-                if _isCorrect:
-                    sentence += wrd + ' '
-                # Just to see what has been ommitted uncomment the following lines.
-                else:
-                    omitted += wrd + ' , '
-                    # print('omitted : ' + omitted) if omitted != "" else ''
-        sentence = str(sentence)
+        # for wrd in afterRemovingStopWords:
+        #     if wrd != '':
+        #         _isCorrect = en_US_dict.check(wrd)
+        #         if _isCorrect:
+        #             sentence += wrd + ' '
+        #         # Just to see what has been ommitted uncomment the following lines.
+        #         else:
+        #             omitted += wrd + ' , '
+        #             # print('omitted : ' + omitted) if omitted != "" else ''
+        #sentence = str(sentence)
 
         # print('sentence : ', str(sentence))
         # endregion
@@ -210,7 +211,7 @@ def processingDataForSelfUnderStanding(dataSet):
         # region TextBlob
         print symbol * 50 + ' TextBlob ' + symbol * 50
 
-        ngrams = (TextBlob(sentence).ngrams(n=3))
+        ngrams = (TextBlob(sentence).ngrams(n=2))
         for eachgram in ngrams:
             _eachgramAsSentence = ' '.join(list(eachgram))
 
@@ -230,7 +231,7 @@ def processingDataForSelfUnderStanding(dataSet):
         print symbol * 50 + ' SentiwordNet ' + symbol * 50
 
         for eachword in dataSet[index][0].split(' '):
-            _stemmedWord = stemmer.stem(eachword)
+            # _stemmedWord = stemmer.stem(eachword)
 
             # region Tried Spelling Correction
             '''
@@ -250,10 +251,10 @@ def processingDataForSelfUnderStanding(dataSet):
             '''
             # endregion
 
-            if len(swn.senti_synsets(_stemmedWord)) > 0:
-                subjectivity = swn.senti_synsets(_stemmedWord)[0].pos_score() if swn.senti_synsets(_stemmedWord)[0].pos_score() > swn.senti_synsets(_stemmedWord)[0].neg_score() else -(swn.senti_synsets(_stemmedWord)[0].neg_score())
-                if swn.senti_synsets(_stemmedWord)[0].obj_score() != 1:
-                    print(tagger.tag([_stemmedWord]) , subjectivity)
+            # if len(swn.senti_synsets(_stemmedWord)) > 0:
+            #     subjectivity = swn.senti_synsets(_stemmedWord)[0].pos_score() if swn.senti_synsets(_stemmedWord)[0].pos_score() > swn.senti_synsets(_stemmedWord)[0].neg_score() else -(swn.senti_synsets(_stemmedWord)[0].neg_score())
+            #     if swn.senti_synsets(_stemmedWord)[0].obj_score() != 1:
+            #         print(tagger.tag([_stemmedWord]) , subjectivity)
                         #     # , ' pos=' + str(swn.senti_synsets(_stemmedWord)[0].pos_score())
                         #     # , ' neg=' + str(swn.senti_synsets(_stemmedWord)[0].neg_score())
                         #     # , ' obj=' + str(swn.senti_synsets(_stemmedWord)[0].obj_score())
@@ -288,41 +289,43 @@ def preProcessTweets(dataSet):
         # Removing Stop Words
         afterRemovingStopWords = [word for word in customFilteredTokens if (word not in _stopwords)]
 
-        SubjectiveWordsList=[]
-        for eachword in afterRemovingStopWords:
-            _stemmedWord = stemmer.stem(eachword)
-
-            if len(swn.senti_synsets(_stemmedWord)) > 0:
-                subjectivity = swn.senti_synsets(_stemmedWord)[0].pos_score() if swn.senti_synsets(_stemmedWord)[0].pos_score() > swn.senti_synsets(_stemmedWord)[0].neg_score() else -(swn.senti_synsets(_stemmedWord)[0].neg_score())
-                if swn.senti_synsets(_stemmedWord)[0].obj_score() != 1:
-                    #print(tagger.tag([_stemmedWord]) , subjectivity)
-                    SubjectiveWordsList.append(_stemmedWord)
+        # SubjectiveWordsList=[]
+        # for eachword in afterRemovingStopWords:
+            # _stemmedWord = stemmer.stem(eachword)
+            #
+            # if len(swn.senti_synsets(_stemmedWord)) > 0:
+            #     subjectivity = swn.senti_synsets(_stemmedWord)[0].pos_score() if swn.senti_synsets(_stemmedWord)[0].pos_score() > swn.senti_synsets(_stemmedWord)[0].neg_score() else -(swn.senti_synsets(_stemmedWord)[0].neg_score())
+            #     # if swn.senti_synsets(_stemmedWord)[0].obj_score() != 1:
+            #     #     print(tagger.tag([_stemmedWord]) , subjectivity)
+        SubjectiveWordsDic = dict([(word,True) for word in afterRemovingStopWords])
+            # SubjectiveWordsList.append(eachword)
         #topic if required in dataset[index][1]
-        if SubjectiveWordsList != []:
-            pptrainingData.append(((SubjectiveWordsList,label)))
+        #if SubjectiveWordsList != []:
+        pptrainingData.append((SubjectiveWordsDic,label))
     return pptrainingData
 
-def buildingDict(ppTrainingData):
-    all_words=[]
-    for (words,sentiment) in ppTrainingData:
-        all_words.extend(words)
-    # This will give us a list in which all the words in all the tweets are present
-    # These have to be de-duped. Each word occurs in this list as many times as it
-    # appears in the corpus
-    wordlist=nltk.FreqDist(all_words)
-    # This will create a dictionary with each word and its frequency
-    word_features=wordlist.keys()
-    # This will return the unique list of words in the corpus
-    return word_features
-
-def extract_features(tweet):
-    tweet_words=set(tweet)
-    features={}
-    for word in word_features:
-        features['contains(%s)' % word]=(word in tweet_words)
-        # This will give us a dictionary , with keys like 'contains word1' and 'contains word2'
-        # and values as True or False
-    return features
+# def buildingDict(ppTrainingData):
+#     all_words=[]
+#     for (words,sentiment) in ppTrainingData:
+#         all_words.extend(words)
+#     # This will give us a list in which all the words in all the tweets are present
+#     # These have to be de-duped. Each word occurs in this list as many times as it
+#     # appears in the corpus
+#     wordlist=nltk.FreqDist(all_words)
+#     # This will create a dictionary with each word and its frequency
+#     word_features=wordlist.keys()
+#     # This will return the unique list of words in the corpus
+#     return word_features
+#
+# def extract_features(tweet):
+#     _temp_list_OfSentence = tweet.split(' ')
+#     tweet_words=set(_temp_list_OfSentence)
+#     features={}
+#     for word in word_features:
+#         features['contains(%s)' % word]=(word in tweet_words)
+#         # This will give us a dictionary , with keys like 'contains word1' and 'contains word2'
+#         # and values as True or False
+#     return features
 
 # region Reading each file from required Folder path ./Data/FetchedData/FinalData
 allFileAsList = []
@@ -361,7 +364,8 @@ def readFilesFromDirectory(folderPath, fileNames=[]):
 ### Main
 
 folderPath = os.path.join(os.getcwd(), 'Data', 'FetchedData', 'FinalData')
-fileNames=['tweet.SARCASM.all.id.TEST.csv','tweet.SARCASM.all.id.TRAIN.csv']
+fileNames=['tweet.SARCASM.all.id.TEST.csv','tweet.SARCASM.all.id.TRAIN.csv',
+           'tweet.NON_SARCASM.all.id.TEST.csv','tweet.NON_SARCASM.all.id.TRAIN.csv']
 
 Start = time.time()
 print("Started reading...")
@@ -369,56 +373,86 @@ print("Started reading...")
 readFilesFromDirectory(folderPath, fileNames)
 
 Took = time.time() - Start
-print ("Took ", round(Took,2))
+print ("Took " + str(round(Took,2)) + " to read all files")
 
 # Dividing data in trainingData and testData according to respective files
-# tweet.SARCASM.all.id.TEST.csv
-testData = processTweets(allFileAsList[0])
 
-# tweet.SARCASM.all.id.TRAIN.csv
-trainData = processTweets(allFileAsList[1])
+for _file in allFileAsList:
+    if _file[0].__contains__('if you ask me what i want the answer will always be some good weed and some good head'):
+        testNonSarData = _file
+    if _file[0].__contains__("It's so annoying walking in the hallway n"):
+        trainNonSarData = _file
+    if _file[0].__contains__('Reading #zizek before bed is always a recipe'):
+        testSarData = _file
+    if _file[0].__contains__("things just don't happen randomly. there"):
+        trainSarData = _file
+
+print "Started Dividing into emotion, tweet format"
+Start = time.time()
+
+testSarData = processTweets(testSarData[:3000])
+testNonSarData = processTweets(testNonSarData)[:3000]
+trainSarData = processTweets(trainSarData[:7000])
+trainNonSarData = processTweets(trainNonSarData[:7000])
+
+# testNonSarData = processTweets(testSarData[:1500])
+# testSarData = processTweets(testNonSarData)[:1500]
+# trainNonSarData = processTweets(trainSarData[:3000])
+# trainSarData = processTweets(trainNonSarData[:3000])
+
+
+print("Records took :" + str(time.time() - Start))
 
 #processingDataForSelfUnderStanding(trainingData);
 
+testData= testSarData + testNonSarData
+
 TotalTestDataRec  = len(testData)
-TotalTrainDataRec = len(trainData)
 
 print("Records in test Data : " + str(TotalTestDataRec))
-print("Records in training Data : " + str(TotalTrainDataRec))
-
-CopyStart = time.time()
-
-print("Started copying to another dataset for backup..")
-OriginaltrainDataSet = trainData
-
-print("Took " + str(time.time() - CopyStart) + " to copy")
-
-print("Slicing training data to reduce over-load")
-trainData = OriginaltrainDataSet[0:500]
-
-
-print("Records in training Data now: " + str(len(trainData)))
 
 Start = time.time()
 print("Started processing...")
 
-tweetProcessor = preProcessTweets(trainData)
+sarFeat = preProcessTweets(trainSarData)
+nonSarFeat = preProcessTweets(trainNonSarData)
 
-print(str(len(trainData)) + " records took :" + str(time.time() - Start))
+trainFeat = sarFeat + nonSarFeat
+testFeat = preProcessTweets(testData)
 
-word_features = buildingDict(tweetProcessor)
-trainingFeatures=nltk.classify.apply_features(extract_features,trainData)
+#word_features = buildingDict(tweetProcessor)
 
-#print(trainingFeatures)
+#trainingFeatures=nltk.classify.apply_features(extract_features,trainData)
 
-NBayesClassifier=nltk.NaiveBayesClassifier.train(trainingFeatures)
+# print(trainingFeatures)
 
-NBResultLabels=[NBayesClassifier.classify(extract_features(tweet[0])) for tweet in testData]
+NBayesClassifier=nltk.NaiveBayesClassifier.train(trainFeat)
 
-print(NBResultLabels)
+#NBResultLabels=[NBayesClassifier.classify(extract_features(tweet[0])) for tweet in testData]
+
+print("Accuracy : " + str(nltk.classify.util.accuracy(NBayesClassifier, testFeat)*100) + " %")
+
+refsets = collections.defaultdict(set)
+testsets = collections.defaultdict(set)
+
+for i, (feats, label) in enumerate(testFeat):
+    refsets[label].add(i)
+    observed = NBayesClassifier.classify(feats)
+    testsets[observed].add(i)
+
+print 'sarcasm precision : '  + str((precision(refsets['sarcasm'], testsets['sarcasm'])*100)) + " %"
+print 'sarcasm recall : '     + str((recall(refsets['sarcasm'], testsets['sarcasm'])*100)) + " %"
+print 'sarcasm F-measure : '  + str((f_measure(refsets['sarcasm'], testsets['sarcasm'])*100)) + " %"
+
+print 'non-sarcasm precision : '    + str((precision(refsets['non-sarcasm'], testsets['non-sarcasm'])*100)) + " %"
+print 'non-sarcasm recall : '       + str((recall(refsets['non-sarcasm'], testsets['non-sarcasm'])*100)) + " %"
+print 'non-sarcasm F-measure : '    + str((f_measure(refsets['non-sarcasm'], testsets['non-sarcasm'])*100)) + " %"
+
+#NBayesClassifier.show_most_informative_features(100)
+# print(NBResultLabels)
 
 # if NBResultLabels.count('positive')>NBResultLabels.count('negative'):
-#     print "NB Result Positive Sentiment" + str(100*NBResultLabels.count('positive')/len(NBResultLabels))+"%"
+# print "NB Result Sarcastic Sentiment\t\t:" + str(100*NBResultLabels.count('sarcasm')/len(NBResultLabels))+"%"
 # else:
-#     print "NB Result Negative Sentiment" + str(100*NBResultLabels.count('negative')/len(NBResultLabels))+"%"
+# print "NB Result Non-Sarcastic Sentiment\t:" + str(100*NBResultLabels.count('non-sarcasm')/len(NBResultLabels))+"%"
 
