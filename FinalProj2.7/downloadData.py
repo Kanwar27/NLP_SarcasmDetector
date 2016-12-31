@@ -4,10 +4,10 @@ import csv
 import sys
 
 api = twitter.Api(
-                    consumer_key = '35zXIrocPSSHVYTphk2FnvOJj',
-                    consumer_secret = 'YHNLdjPsPoAox3aaFqCz2AZLiU8jl8c0HlNgBif4baE6c3xC1P',
-                    access_token_key = '1571106582-jSTOVFhv7o8AxXiceEv6Sx60njiuUPH0lr77oI8',
-                    access_token_secret = 'tE5wzDkRAijVNL5O6vfDQzHzyBWTGlEpvVN9Y6nhGACBz'
+                    consumer_key = '',
+                    consumer_secret = '',
+                    access_token_key = '',
+                    access_token_secret = ''
                 )
 
 # corpus1 = []
